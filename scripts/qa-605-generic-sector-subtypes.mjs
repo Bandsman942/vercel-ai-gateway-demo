@@ -30,8 +30,8 @@ check(
   "Generic subtype registry must declare MANUFACTURING -> TAILORING_APPAREL",
 );
 check(
-  genericRegistry.includes('code: "TAILORING_APPAREL"') && genericRegistry.includes('implementationStatus: "PLANNED"'),
-  "TAILORING_APPAREL must remain PLANNED during iteration #605",
+  genericRegistry.includes('code: "TAILORING_APPAREL"') && genericRegistry.includes('implementationStatus: "ACTIVE"'),
+  "TAILORING_APPAREL must be ACTIVE only after the dedicated Manufacturing/Couture implementation is delivered",
 );
 check(
   genericRegistry.includes("listBusinessSubtypesForSector") && genericRegistry.includes("getBusinessSubtypeForSector"),
@@ -78,11 +78,11 @@ check(
 );
 check(
   retailRegistry.includes('RETAIL_BUSINESS_SUBTYPE_CODES = ["SHOP"]'),
-  "Retail compatibility contract must remain SHOP-only in iteration #605",
+  "Retail compatibility contract must remain SHOP-only",
 );
 check(
   !retailRegistry.includes("tailoring workshop"),
-  "Tailoring must no longer be documented as a future Retail subtype",
+  "Tailoring must not be documented as a Retail subtype",
 );
 check(
   canonicalTemplateApplication.includes("type BusinessSubtypeCode") && canonicalTemplateApplication.includes("getBusinessSubtypeForSector"),
@@ -168,8 +168,8 @@ check(
   "Generic subtype QA must remain wired into the canonical regression gate",
 );
 check(
-  architectureDoc.includes("TAILORING_APPAREL") && architectureDoc.includes("PLANNED"),
-  "Architecture documentation must keep Tailoring planned until Manufacturing is implemented",
+  architectureDoc.includes("TAILORING_APPAREL") && architectureDoc.includes("ACTIVE") && architectureDoc.includes("#607"),
+  "Architecture documentation must describe Tailoring activation after its dedicated implementation",
 );
 check(
   architectureDoc.includes("20260909002000_generic_business_subtype_selection") && architectureDoc.includes("Retail historique sans marqueur #512"),

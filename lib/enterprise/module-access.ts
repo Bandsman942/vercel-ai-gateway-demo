@@ -3,6 +3,7 @@ import { getOrganizationEntitlements } from "@/lib/billing/entitlements";
 import { getActiveEnterpriseModuleRestriction } from "@/lib/enterprise/module-access-restrictions";
 import {
   getEnterpriseModuleDefinition,
+  isEnterpriseModuleBusinessSubtypeCompatible,
   isEnterpriseModuleImplemented,
   isEnterpriseModuleNavigable,
   isEnterpriseModuleSectorCompatible,
@@ -23,6 +24,7 @@ export type EnterpriseModuleAccessCode =
   | "ORGANIZATION_INACTIVE"
   | "ORGANIZATION_NOT_CLIENT"
   | "SECTOR_INCOMPATIBLE"
+  | "BUSINESS_SUBTYPE_INCOMPATIBLE"
   | "TENANT_MODULE_MISSING"
   | "TENANT_MODULE_DISABLED"
   | "DEPENDENCY_INACTIVE"
@@ -64,6 +66,7 @@ type EnterpriseAccessSnapshot = {
   userId: string;
   organizationId: string;
   sectorCode: string | null;
+  businessSubtypeCode: string | null;
   role: string;
   permissions: string[];
   organizationSettings: Prisma.JsonValue | null;
@@ -129,7 +132,7 @@ function permissionsAllowAction(definition: EnterpriseModuleDefinition, permissi
 }
 
 async function getEnterpriseAccessSnapshot(userId: string, organizationId: string): Promise<EnterpriseAccessSnapshot | null> {
-  const [membership, tenantModules, entitlements] = await Promise.all([
+  const [membership, tenantModules, entitlements, subtypeSelection] = await Promise.all([
     prisma.organizationMember.findFirst({
       where: { userId, organizationId, status: "ACTIVE", removedAt: null },
       select: {
@@ -149,6 +152,10 @@ async function getEnterpriseAccessSnapshot(userId: string, organizationId: strin
       select: { id: true, moduleCode: true, isEnabled: true },
     }),
     getOrganizationEntitlements(organizationId),
+    prisma.enterpriseBusinessSubtypeSelection.findUnique({
+      where: { organizationId },
+      select: { sectorCode: true, businessSubtypeCode: true },
+    }),
   ]);
 
   if (!membership || membership.organization.deletedAt || membership.organization.status !== "ACTIVE" || membership.organization.organizationType !== "CLIENT") {
@@ -189,11 +196,15 @@ async function getEnterpriseAccessSnapshot(userId: string, organizationId: strin
 
   const inheritedRolePermissions = membership.organizationRoleAssignments.flatMap((assignment) => permissionList(assignment.role.permissionsJson));
   const permissions = Array.from(new Set([...permissionList(position?.permissionsJson), ...inheritedRolePermissions]));
+  const businessSubtypeCode = subtypeSelection?.sectorCode === membership.organization.sectorCode
+    ? subtypeSelection.businessSubtypeCode
+    : null;
 
   return {
     userId,
     organizationId,
     sectorCode: membership.organization.sectorCode,
+    businessSubtypeCode,
     role: membership.role,
     permissions,
     organizationSettings: membership.organization.settingsJson,
@@ -208,6 +219,7 @@ function resolveFromSnapshot(snapshot: EnterpriseAccessSnapshot, moduleCode: str
   if (!definition) return denied("UNKNOWN_MODULE", "Ce service n’existe pas dans le catalogue DTSC.", null);
   if (!isEnterpriseModuleImplemented(definition.code)) return denied("MODULE_NOT_IMPLEMENTED", "Ce service n’est pas encore disponible.", definition);
   if (!isEnterpriseModuleSectorCompatible(definition, snapshot.sectorCode)) return denied("SECTOR_INCOMPATIBLE", "Ce service ne correspond pas au secteur de l’entreprise.", definition);
+  if (!isEnterpriseModuleBusinessSubtypeCompatible(definition, snapshot.businessSubtypeCode)) return denied("BUSINESS_SUBTYPE_INCOMPATIBLE", "Ce service est réservé au sous-secteur configuré pour l’entreprise.", definition);
   if (definition.accessPolicy === "EXPLICIT_DENY") return denied("MODULE_NOT_IMPLEMENTED", "Ce service n’est pas proposé dans cet espace.", definition);
 
   if (definition.routeKind === "ADMIN_SECTION" || definition.accessPolicy === "ADMIN_ONLY") {
@@ -302,11 +314,18 @@ export async function listNavigableEnterpriseModules({ userId, organizationId, a
 }
 
 export async function listEnterpriseModuleConfigurationIssues(organizationId: string): Promise<EnterpriseModuleConfigurationIssue[]> {
-  const organization = await prisma.organization.findFirst({
-    where: { id: organizationId, deletedAt: null },
-    select: { sectorCode: true, enterpriseModules: { select: { id: true, moduleCode: true, isEnabled: true } } },
-  });
+  const [organization, subtypeSelection] = await Promise.all([
+    prisma.organization.findFirst({
+      where: { id: organizationId, deletedAt: null },
+      select: { sectorCode: true, enterpriseModules: { select: { id: true, moduleCode: true, isEnabled: true } } },
+    }),
+    prisma.enterpriseBusinessSubtypeSelection.findUnique({
+      where: { organizationId },
+      select: { sectorCode: true, businessSubtypeCode: true },
+    }),
+  ]);
   if (!organization) return [{ code: "ORGANIZATION_NOT_FOUND", severity: "ERROR", message: "L’entreprise sélectionnée est introuvable." }];
+  const businessSubtypeCode = subtypeSelection?.sectorCode === organization.sectorCode ? subtypeSelection.businessSubtypeCode : null;
 
   const enabledCanonicalCodes = new Set(
     organization.enterpriseModules.filter((tenantModule) => tenantModule.isEnabled).map((tenantModule) => normalizeEnterpriseModuleCode(tenantModule.moduleCode)),
@@ -346,6 +365,9 @@ export async function listEnterpriseModuleConfigurationIssues(organizationId: st
     }
     if (tenantModule.isEnabled && !isEnterpriseModuleSectorCompatible(definition, organization.sectorCode)) {
       issues.push({ code: "SECTOR_INCOMPATIBLE", severity: "ERROR", moduleCode: canonicalCode, moduleLabel: definition.labelFr, message: "Ce service ne correspond pas au secteur de l’entreprise sélectionnée." });
+    }
+    if (tenantModule.isEnabled && !isEnterpriseModuleBusinessSubtypeCompatible(definition, businessSubtypeCode)) {
+      issues.push({ code: "BUSINESS_SUBTYPE_INCOMPATIBLE", severity: "ERROR", moduleCode: canonicalCode, moduleLabel: definition.labelFr, message: "Ce service ne correspond pas au sous-secteur configuré pour l’entreprise sélectionnée." });
     }
 
     const inactiveDependencies = definition.dependencies

@@ -13,6 +13,7 @@ import { persistBusinessSubtypeSelection } from "@/lib/enterprise/business-subty
 import { RETAIL_SECTOR_CODE } from "@/lib/enterprise/retail/constants";
 import { syncRetailOnboardingProvisioning } from "@/lib/enterprise/retail/provisioning";
 import { normalizeRetailBusinessSubtypeCode } from "@/lib/enterprise/retail/subtype-registry";
+import { TAILORING_BUSINESS_SUBTYPE_CODE } from "@/lib/enterprise/tailoring/constants";
 import { canManageClientOrganizations, isDtscInternalSession } from "@/lib/organizations";
 import { notifyUser } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
@@ -233,7 +234,8 @@ export async function POST(req: Request) {
     }).catch(() => null);
   }
 
-  if (sector && data.applySectorTemplate) {
+  const requiresCanonicalSectorTemplate = businessSubtypeCode === TAILORING_BUSINESS_SUBTYPE_CODE;
+  if (sector && (data.applySectorTemplate || requiresCanonicalSectorTemplate)) {
     await applyCanonicalSectorTemplateToOrganization({
       organizationId: organization.id,
       sectorId: sector.id,
@@ -264,6 +266,7 @@ export async function POST(req: Request) {
       sectorId: sector?.id || null,
       sectorCode: sector?.code || null,
       businessSubtypeCode,
+      sectorTemplateForcedBySubtype: requiresCanonicalSectorTemplate,
     },
     request: req,
   });

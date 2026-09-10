@@ -2,6 +2,7 @@ import registryData from "@/lib/enterprise/module-registry-data.json";
 import commonDomainRegistryData from "@/lib/enterprise/module-registry-common-domains.json";
 import financeRegistryData from "@/lib/enterprise/module-registry-finance.json";
 import manufacturingRegistryData from "@/lib/enterprise/module-registry-manufacturing.json";
+import tailoringRegistryData from "@/lib/enterprise/module-registry-tailoring.json";
 import retailRegistryData from "@/lib/enterprise/module-registry-retail.json";
 import sectorConvergenceRegistryData from "@/lib/enterprise/module-registry-sector-convergence.json";
 import finalCleanupRegistryData from "@/lib/enterprise/module-registry-final-cleanup.json";
@@ -77,6 +78,7 @@ export type EnterpriseModuleDefinition = {
   minimumPlan: SaasPlanCode;
   requiresActiveSubscription: boolean;
   applicableSectors: string[] | "ALL";
+  applicableBusinessSubtypes?: string[] | "ALL";
   dependencies: string[];
   aliases?: string[];
   legacyCodes?: string[];
@@ -93,6 +95,7 @@ export const ENTERPRISE_MODULE_REGISTRY_VERSION = Math.max(
   commonDomainRegistryData.version,
   financeRegistryData.version,
   manufacturingRegistryData.version,
+  tailoringRegistryData.version,
   retailRegistryData.version,
   sectorConvergenceRegistryData.version,
   finalCleanupRegistryData.version,
@@ -147,6 +150,7 @@ export const ENTERPRISE_MODULE_REGISTRY = [
   ...commonDomainRegistryData.modules,
   ...financeRegistryData.modules,
   ...manufacturingRegistryData.modules,
+  ...tailoringRegistryData.modules,
   ...retailRegistryData.modules,
 ].map((definition) =>
   applyCommercialOverride(
@@ -196,6 +200,14 @@ export function isEnterpriseModuleImplemented(moduleCode: string) {
 export function isEnterpriseModuleSectorCompatible(definition: EnterpriseModuleDefinition, sectorCode: string | null | undefined) {
   if (definition.applicableSectors === "ALL") return true;
   return Boolean(sectorCode && definition.applicableSectors.includes(sectorCode));
+}
+
+export function isEnterpriseModuleBusinessSubtypeCompatible(
+  definition: EnterpriseModuleDefinition,
+  businessSubtypeCode: string | null | undefined,
+) {
+  if (!definition.applicableBusinessSubtypes || definition.applicableBusinessSubtypes === "ALL") return true;
+  return Boolean(businessSubtypeCode && definition.applicableBusinessSubtypes.includes(businessSubtypeCode));
 }
 
 export function isEnterpriseModuleNavigable(definition: EnterpriseModuleDefinition) {

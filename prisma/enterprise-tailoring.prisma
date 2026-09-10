@@ -1,0 +1,286 @@
+model EnterpriseTailoringConfiguration {
+  id                       String   @id @default(cuid())
+  organizationId           String   @unique
+  operatingMode            String   @default("MIXED")
+  defaultMeasurementUnit   String   @default("CM")
+  settingsJson             Json?
+  revision                 Int      @default(1)
+  createdByUserId          String
+  updatedByUserId          String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model EnterpriseTailoringMeasurementProfile {
+  id                   String   @id @default(cuid())
+  organizationId       String
+  businessPartyId      String
+  label                String
+  version              Int      @default(1)
+  status               String   @default("ACTIVE")
+  measuredAt           DateTime @default(now())
+  measuredByEmployeeId String?
+  notes                String?
+  createdByUserId      String
+  revision             Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  archivedAt           DateTime?
+  values               EnterpriseTailoringMeasurementValue[]
+  fittings             EnterpriseTailoringFitting[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, businessPartyId, version], map: "TailoringMeasurement_org_party_version_key")
+  @@index([organizationId, businessPartyId, status])
+  @@index([organizationId, measuredAt])
+  @@index([archivedAt])
+}
+
+model EnterpriseTailoringMeasurementValue {
+  id              String   @id @default(cuid())
+  organizationId  String
+  profileId       String
+  measurementCode String
+  value           Decimal  @db.Decimal(10, 2)
+  unit            String   @default("CM")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  profile         EnterpriseTailoringMeasurementProfile @relation(fields: [organizationId, profileId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, profileId, measurementCode], map: "TailoringMeasureValue_org_profile_code_key")
+  @@index([organizationId, measurementCode])
+}
+
+model EnterpriseTailoringStyle {
+  id              String   @id @default(cuid())
+  organizationId  String
+  code            String
+  name            String
+  catalogItemId   String
+  garmentType     String
+  operatingMode   String   @default("MIXED")
+  patternReference String?
+  patternVersion  Int      @default(1)
+  bomId           String?
+  routingId       String?
+  status          String   @default("DRAFT")
+  notes           String?
+  createdByUserId String
+  updatedByUserId String?
+  revision        Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  archivedAt      DateTime?
+  sizeGrades      EnterpriseTailoringSizeGrade[]
+  cuttingPlans    EnterpriseTailoringCuttingPlan[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, code, patternVersion], map: "TailoringStyle_org_code_pattern_version_key")
+  @@index([organizationId, catalogItemId, status])
+  @@index([organizationId, bomId, status])
+  @@index([organizationId, routingId, status])
+  @@index([archivedAt])
+}
+
+model EnterpriseTailoringSizeGrade {
+  id              String   @id @default(cuid())
+  organizationId  String
+  styleId         String
+  sizeCode        String
+  baseSizeCode    String?
+  sequence        Int      @default(0)
+  status          String   @default("ACTIVE")
+  notes           String?
+  createdByUserId String
+  revision        Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  style           EnterpriseTailoringStyle @relation(fields: [organizationId, styleId], references: [organizationId, id], onDelete: Cascade)
+  rules           EnterpriseTailoringSizeGradeRule[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, styleId, sizeCode], map: "TailoringSizeGrade_org_style_size_key")
+  @@index([organizationId, styleId, sequence])
+}
+
+model EnterpriseTailoringSizeGradeRule {
+  id              String   @id @default(cuid())
+  organizationId  String
+  sizeGradeId     String
+  measurementCode String
+  deltaValue      Decimal  @db.Decimal(10, 2)
+  unit            String   @default("CM")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  sizeGrade       EnterpriseTailoringSizeGrade @relation(fields: [organizationId, sizeGradeId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, sizeGradeId, measurementCode], map: "TailoringGradeRule_org_grade_code_key")
+  @@index([organizationId, measurementCode])
+}
+
+model EnterpriseTailoringMaterialProfile {
+  id              String   @id @default(cuid())
+  organizationId  String
+  catalogItemId   String
+  profileType     String
+  fabricWidthCm   Decimal? @db.Decimal(10, 2)
+  usableWidthCm   Decimal? @db.Decimal(10, 2)
+  shrinkageRate   Decimal? @db.Decimal(8, 4)
+  grainDirection  String?
+  colorFamily     String?
+  notes           String?
+  createdByUserId String
+  updatedByUserId String?
+  revision        Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  archivedAt      DateTime?
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, catalogItemId], map: "TailoringMaterial_org_catalog_key")
+  @@index([organizationId, profileType, archivedAt])
+}
+
+model EnterpriseTailoringCuttingPlan {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  reference             String
+  productionOrderId     String
+  styleId               String?
+  materialRequirementId String?
+  fabricCatalogItemId   String
+  status                String   @default("DRAFT")
+  fabricWidthCm         Decimal? @db.Decimal(10, 2)
+  markerLengthCm        Decimal? @db.Decimal(10, 2)
+  layers                Int      @default(1)
+  plannedQuantity       Decimal  @db.Decimal(18, 3)
+  cutQuantity           Decimal  @default(0) @db.Decimal(18, 3)
+  wasteQuantity         Decimal  @default(0) @db.Decimal(18, 3)
+  markerEfficiency      Decimal? @db.Decimal(8, 4)
+  notes                 String?
+  createdByUserId       String
+  updatedByUserId       String?
+  revision              Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  completedAt           DateTime?
+  style                 EnterpriseTailoringStyle? @relation(fields: [organizationId, styleId], references: [organizationId, id], onDelete: Restrict)
+  garmentBundles        EnterpriseTailoringGarmentBundle[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, reference])
+  @@index([organizationId, productionOrderId, status])
+  @@index([organizationId, materialRequirementId, status])
+  @@index([organizationId, fabricCatalogItemId, status])
+}
+
+model EnterpriseTailoringFitting {
+  id                   String   @id @default(cuid())
+  organizationId       String
+  reference            String
+  productionOrderId    String
+  measurementProfileId String?
+  sequence             Int      @default(1)
+  status               String   @default("SCHEDULED")
+  result               String   @default("PENDING")
+  scheduledAt          DateTime?
+  completedAt          DateTime?
+  fittedByEmployeeId   String?
+  notes                String?
+  createdByUserId      String
+  updatedByUserId      String?
+  revision             Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  measurementProfile   EnterpriseTailoringMeasurementProfile? @relation(fields: [organizationId, measurementProfileId], references: [organizationId, id], onDelete: Restrict)
+  alterations          EnterpriseTailoringAlteration[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, reference])
+  @@unique([organizationId, productionOrderId, sequence], map: "TailoringFitting_org_order_sequence_key")
+  @@index([organizationId, productionOrderId, status])
+  @@index([organizationId, scheduledAt, status])
+}
+
+model EnterpriseTailoringAlteration {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  fittingId          String
+  productionOrderId  String
+  alterationType     String
+  areaCode           String?
+  priority           String   @default("NORMAL")
+  status             String   @default("OPEN")
+  assignedEmployeeId String?
+  dueAt              DateTime?
+  completedAt        DateTime?
+  notes              String?
+  createdByUserId    String
+  updatedByUserId    String?
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  fitting            EnterpriseTailoringFitting @relation(fields: [organizationId, fittingId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, productionOrderId, status])
+  @@index([organizationId, assignedEmployeeId, status])
+  @@index([organizationId, dueAt, status])
+}
+
+model EnterpriseTailoringGarmentBundle {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  bundleCode         String
+  productionOrderId  String
+  cuttingPlanId      String?
+  sizeCode           String?
+  quantity           Decimal  @db.Decimal(18, 3)
+  status             String   @default("CUT")
+  currentWorkCenterId String?
+  notes              String?
+  createdByUserId    String
+  updatedByUserId    String?
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  cuttingPlan        EnterpriseTailoringCuttingPlan? @relation(fields: [organizationId, cuttingPlanId], references: [organizationId, id], onDelete: Restrict)
+  finishingRecords   EnterpriseTailoringFinishingRecord[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, bundleCode])
+  @@index([organizationId, productionOrderId, status])
+  @@index([organizationId, currentWorkCenterId, status])
+}
+
+model EnterpriseTailoringFinishingRecord {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  productionOrderId  String
+  garmentBundleId    String
+  qualityCheckId     String?
+  status             String   @default("PENDING")
+  pressed            Boolean  @default(false)
+  threadTrimmed      Boolean  @default(false)
+  fasteningsChecked  Boolean  @default(false)
+  packaged           Boolean  @default(false)
+  completedByEmployeeId String?
+  completedAt        DateTime?
+  notes              String?
+  createdByUserId    String
+  updatedByUserId    String?
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  garmentBundle      EnterpriseTailoringGarmentBundle @relation(fields: [organizationId, garmentBundleId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, garmentBundleId], map: "TailoringFinishing_org_bundle_key")
+  @@index([organizationId, productionOrderId, status])
+  @@index([organizationId, qualityCheckId])
+}

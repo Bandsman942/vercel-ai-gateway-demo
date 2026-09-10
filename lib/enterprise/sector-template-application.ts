@@ -13,6 +13,7 @@ import {
 import { ensureCanonicalCommonModulesForOrganization } from "@/lib/enterprise/common-modules";
 import {
   getEnterpriseModuleDefinition,
+  isEnterpriseModuleBusinessSubtypeCompatible,
   isEnterpriseModuleImplemented,
   isEnterpriseModuleSectorCompatible,
   normalizeEnterpriseModuleCode,
@@ -20,6 +21,7 @@ import {
 import { RETAIL_SECTOR_CODE } from "@/lib/enterprise/retail/constants";
 import { syncRetailOnboardingProvisioning } from "@/lib/enterprise/retail/provisioning";
 import { normalizeRetailBusinessSubtypeCode } from "@/lib/enterprise/retail/subtype-registry";
+import { syncTailoringOnboardingProvisioning } from "@/lib/enterprise/tailoring/provisioning";
 import { prisma } from "@/lib/prisma";
 
 export async function applyCanonicalSectorTemplateToOrganization({
@@ -79,6 +81,12 @@ export async function applyCanonicalSectorTemplateToOrganization({
     actorUserId,
     source: "SECTOR_TEMPLATE",
   });
+  const tailoringProvisioning = await syncTailoringOnboardingProvisioning({
+    organizationId,
+    sectorCode: result.sectorCode,
+    businessSubtypeCode: resolvedBusinessSubtypeCode,
+    actorUserId,
+  });
   const commonModules = await ensureCanonicalCommonModulesForOrganization({ organizationId });
   const organization = await prisma.organization.findFirst({
     where: { id: organizationId, deletedAt: null },
@@ -99,6 +107,7 @@ export async function applyCanonicalSectorTemplateToOrganization({
       subtypeSelection,
       commonModuleCount: commonModules.length,
       retailProvisioning,
+      tailoringProvisioning,
     };
   }
 
@@ -118,6 +127,7 @@ export async function applyCanonicalSectorTemplateToOrganization({
       !definition ||
       !isEnterpriseModuleImplemented(canonicalCode) ||
       !isEnterpriseModuleSectorCompatible(definition, organization.sectorCode) ||
+      !isEnterpriseModuleBusinessSubtypeCompatible(definition, resolvedBusinessSubtypeCode) ||
       definition.routeKind === "ADMIN_SECTION" ||
       definition.routeKind === "HIDDEN" ||
       aliasIsDuplicated;
@@ -135,6 +145,7 @@ export async function applyCanonicalSectorTemplateToOrganization({
       !definition ||
       !isEnterpriseModuleImplemented(definition.code) ||
       !isEnterpriseModuleSectorCompatible(definition, organization.sectorCode) ||
+      !isEnterpriseModuleBusinessSubtypeCompatible(definition, resolvedBusinessSubtypeCode) ||
       definition.routeKind === "ADMIN_SECTION" ||
       definition.routeKind === "HIDDEN"
     ) {
@@ -159,6 +170,7 @@ export async function applyCanonicalSectorTemplateToOrganization({
     subtypeSelection,
     commonModuleCount: commonModules.length,
     retailProvisioning,
+    tailoringProvisioning,
     registryNormalization: {
       disabledModuleCount: moduleIdsToDisable.size,
       disabledActivityBlockCount: activityBlockIdsToDisable.size,

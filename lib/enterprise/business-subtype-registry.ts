@@ -37,9 +37,9 @@ export const BUSINESS_SUBTYPES = [
     code: "TAILORING_APPAREL",
     labelFr: "Couture, confection & habillement",
     labelEn: "Tailoring, garment making & apparel",
-    descriptionFr: "Sous-secteur Manufacturing prévu pour les ateliers de couture, la confection sur mesure et la production d’habillement. Son activation produit appartient aux itérations Manufacturing suivantes.",
-    descriptionEn: "Planned Manufacturing subtype for tailoring workshops, made-to-measure garment making and apparel production. Product activation belongs to the following Manufacturing iterations.",
-    implementationStatus: "PLANNED",
+    descriptionFr: "Sous-secteur Manufacturing pour les ateliers de couture, la confection sur mesure, le prêt-à-porter et les activités mixtes, intégré au moteur Manufacturing et aux sources ERP communes.",
+    descriptionEn: "Manufacturing subtype for tailoring workshops, made-to-measure, ready-to-wear and mixed apparel operations, integrated with Manufacturing Core and shared ERP sources.",
+    implementationStatus: "ACTIVE",
   },
 ] as const satisfies readonly BusinessSubtypeDefinition[];
 
